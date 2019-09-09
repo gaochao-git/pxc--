@@ -1,0 +1,70 @@
+#!/bin/bash
+lsb_functions="/lib/lsb/init-functions"
+if test -f $lsb_functions ; then
+  . $lsb_functions
+else
+  log_success_msg()
+  {
+    echo " SUCCESS! $@"
+  }
+  log_failure_msg()
+  {
+    echo " ERROR! $@"
+  }
+fi
+
+GALERA_PORT=$1
+CONFIGFILE=/home/q/garb/multi/$GALERA_PORT/garbd.cnf
+LOGFILE=/home/q/garb/multi/$GALERA_PORT/garbd.log
+PIDFILE=/home/q/garb/multi/$GALERA_PORT/garbd.pid
+prog="/home/q/garb/garbd"
+# root
+if [ $USER != 'root' ]; then
+    log_failure_msg "Please run in as the root."
+    exit 1
+fi
+
+start() {
+        running_port=`netstat -utnlp|grep $GALERA_PORT|wc -l` 
+        if [ $running_port -gt 0 ]; then
+            log_failure_msg "$GALERA_PORT is already exist"
+            return 3 
+        fi
+        if [ -f $CONFIGFILE ];then
+	    $prog --cfg $CONFIGFILE -d -l $LOGFILE && log_success_msg "start ok"
+            #if [ $? -eq 0  ];then
+            #    log_success_msg "start ok"
+            #fi
+        else
+            log_failure_msg "can't access $CONFIGFILE"
+        fi
+}
+
+stop() {
+        pid=`ps -ef|grep garbd|grep $GALERA_PORT|grep -v grep | grep -v stop|awk -F ' ' '{print $2}'` 
+        if [ "X$pid" = "X" ]; then
+            log_failure_msg "$GALERA_PORT has not been running"
+        else
+            kill $pid
+            if [ $? -eq 0  ];then
+                log_success_msg "stop ok"
+            fi
+        fi
+}
+# See how we were called
+if [ $# -ne 2 ];then
+    echo $"Usage: $0 port {start|stop}"
+    exit
+fi
+case "$2" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  *)
+	echo $"Usage: $0 port {start|stop}"
+	exit 2
+esac
+
